@@ -1,5 +1,6 @@
-import random, aiohttp
+import random, aiohttp, replit
 import discord, json, asyncio, typing, os
+from replit import db
 from discord import app_commands
 from rocketbot_client import RocketBotClient
 
@@ -36,7 +37,9 @@ rocketbot_client = RocketBotClient(rocketbot_user, rocketbot_pass)
 
 players = []
 bots = []
-playing = false
+playing = False
+
+os.system('clear')
 
 def generate_random_name():
     adjective = [
@@ -72,8 +75,6 @@ def generate_random_name():
         "hamster-manueverer",
         "badengine",
         "killing-machine",
-        "moyai-follower",
-        "moyai-hater"
     ]
 
     name = random.choice(adjective).capitalize() + random.choice(noun).capitalize()
@@ -85,6 +86,13 @@ def generate_random_name():
     
     return name
     
+def add_player_coin(player, coins):
+    player_coins = db.get(player)
+    if player_coins == None:
+        db[player] = 500
+    dp[player] = db[player] + coins
+    return dp[player]
+
 
 async def refresh_config():
     '''Refresh game configuration every 10 minutes'''
@@ -254,7 +262,7 @@ async def battle(interaction: discord.Interaction):
         : 1,
         "<R> comes out of nowhere and shoots a shield at the bot deflecting it back to you and you die."
         : 1,
-        "You miss. Before you try to shoot again PepperBoi comes out of nowhere and stands next to the bot and you decide to leave out of sheer intimidation."
+        "You miss. Before you try to shoot again <R> comes out of nowhere and stands next to the bot and you decide to leave out of sheer intimidation."
         : 1,
         "The missile goes off-screen. Instead of getting a kill, a beachball comes hurtling back at mach 2."
         : 0.3,
@@ -291,95 +299,118 @@ async def build_a_bot(interaction: discord.Interaction):
     '''Bear the responsibility of creating new life... I mean bot'''
     bot_name = generate_random_name()
     players.append(bot_name)
-    players.append(bot_name)
-    await interaction.response.send_message(f"***Meet your lovely new bot!***\n\n`{bot_name}`")
-    if len(bots) > 10:
-        await interaction.response.send_message(f"`{bot_name}` can't join because 10 bots have already joined")
-        return
-    await interaction.response.send_message(f"`{bot_name}` is joining the next game")
+    bots.append(bot_name)
+    response = f"***Meet your lovely new bot!***\n\n`{bot_name}`"
+    if len(bots) > 5:
+        response += f"\n\n`{bot_name}` can't join because 5 bots have already joined"
+    else:
+        response += f"\n\n`{bot_name}` is joining the next game"
+    await interaction.response.send_message(response)
 
 
 @tree.command()
 async def join_game(interaction: discord.Interaction):
     '''Join the current game'''
+    response_hidden = False
     if playing:
         await interaction.response.send_message("Can't join because a game is already in progress")
         return
     response = ""
-    if interaction.user not in players:
+    if interaction.user.mention not in players:
         players.append(interaction.user.mention)
-        response = '{} joined'.format(interaction.user.mention)
+        response += '{} joined'.format(interaction.user.mention)
     else:
-        response = '{} you cant join twice'.format(interaction.user.mention)
+        response_hidden = True
+        response += '{} you cant join twice'.format(interaction.user.mention)
 
-    await interaction.response.send_message(response)
+    await interaction.response.send_message(response, hidden = response_hidden)
 
 @tree.command()
 async def start_game(interaction: discord.Interaction):
     '''Start a game with the people joined'''
-    if playing == true:
-        pass
+    global playing 
+    if playing:
+        return
+    playing = True
     response = "Game Starting With: "
     if len(players) <= 1:
         await interaction.response.send_message("Need 2 or more players to start.")
         return
     for i in players:
-        response += '{} '.format(i.mention)
+        response += i + " "
     await interaction.response.send_message(response)
     while len(players) >= 2:
         action_types = {"Kill": 100, "Self": 50, "Miss": 50, "Special": 0}
         
-#         match random.choices(population=list(kill_messages.keys()), weights=kill_messages.values(), k=1)[0]:
-#             "Kill":
-#                 player_a = random.choice(players)
-#                 players.remove(player_a)
-#                 player_b = random.choice(players)
-#                 players.remove(player_b)
-#                 kill_messages = {
-#                     "<A> kills <B>.": 100,
-#                     "<B> hits <A> but they dont die, so <A> gets revenge and kills <B>": 40, 
-#                     "<A> kills <B> and <C> comes on the screen and <A> kills them `DOUBLE KILL`": 10}
-#                 event = random.choices(population=list(kill_messages.keys()), weights=kill_messages.values(), k=1)[0]
-#                 event.replace("<A>", player_a)
-#                 event.replace("<B>", player_b)
-#                 #B-E die for kills, if we need a non dying player use F
-#                 if "<C>" in event:
-#                     player_c = random.choice(players)
-#                     player.remove(player_c)
-#                     event.replace("<C>", player_c)
-#                 if "<D>" in event:
-#                     player_d = random.choice(players)
-#                     player.remove(player_d)
-#                     event.replace("<D>", player_d)
-#                 if "<E>" in event:
-#                     player_e = random.choice(players)
-#                     player.remove(player_e)
-#                     event.replace("<E>", player_e)
-#                 if "<F>" in event:
-#                     player_f = random.choice(players)
-#                     event.replace("<F>", player_f)
-#                 players.append(player_a)
-#                 await interaction.channel.send(event)
-#             "Miss":
-#                 choices = random.sample(set(players), 2)
-#                 player_a = choices[0]
-#                 player_b = choices[1]
-#                 await interaction.channel.send(player_a + " shoots at " player_b " but misses.")
-#             "Self":
-#                 kill_messages = {
-#                     "<A> jumps into the water.": 100,
-#                     "On <A>'s screen an error pops up: `CLIENT DISCONNECTED` <:alertbad:910249086299557888>": .1}
-#                 event = random.choices(population=list(kill_messages.keys()), weights=kill_messages.values(), k=1)[0]
-#                 player_a = random.choice(players)
-#                 players.remove(player_a)
-#                 event.replace("<B>", player_a)
-#                 await interaction.channel.send(event)
-#             "Special":
+        action_choice = random.choices(population=list(action_types.keys()), weights=action_types.values(), k=1)[0]
+        
+        
+        if action_choice == "Kill":
+            coin_num = random.choice(range(1,100))
+            player_a = random.choice(players)
+            players.remove(player_a)
+            player_b = random.choice(players)
+            players.remove(player_b)
+            kill_messages = {
+                "<A> kills <B>.": 100,
+                "After a long intense fight <A> kills <B>": 40, 
+            }
+#                 "<A> kills <B> and <C> `DOUBLE KILL`": 10
+#             ,
+#                 "<A> kills <B> ,<C> and <D> `TRIPPLE KILL`": 5,
+#                 "<A> kills <B>, <C>, <D> and <E> `QUAD KILL`": 5,
+            event = random.choices(population=list(kill_messages.keys()), weights=kill_messages.values(), k=1)[0]
+            event = event.replace("<A>", player_a)
+            event = event.replace("<B>", player_b)
+            #B-E die for kills, if we need a non dying player use F
+            event += "\n\n" + player_a + " got " + str(coin_num) + " <:coin:910247623787700264>"
+            event += " and " + player_b + " lost " + str(coin_num) + " <:coin:910247623787700264>"
+            if "<C>" in event:
+#                 cur_num = random.choice(range(1,100)
+                player_c = random.choice(players)
+                db[player_c] = db[player_c] - cur_num
+                player.remove(player_c)
+                event = event.replace("<C>", player_c)
+            if "<D>" in event:
+#                 coin_num += random.choice(range(1,100)
+                player_d = random.choice(players)
+                player.remove(player_d)
+                event.replace("<D>", player_d)
+            if "<E>" in event:
+#                 coin_num += random.choice(range(1,100)
+                player_e = random.choice(players)
+                player.remove(player_e)
+                event.replace("<E>", player_e)
+            if "<F>" in event:
+                player_f = random.choice(players)
+                event.replace("<F>", player_f)
+            players.append(player_a)
+            await interaction.channel.send(event)
+        elif action_choice == "Miss":        
+            choices = random.sample(set(players), 2)
+            player_a = choices[0]
+            player_b = choices[1]
+            await interaction.channel.send(player_a + " shoots at " + player_b + " but misses.")
+        elif action_choice == "Self":
+            kill_messages = {
+                "<A> jumps into the water.": 100,
+                "On <A>'s screen an error pops up: `CLIENT DISCONNECTED` <:alertbad:910249086299557888>": 1}
+            event = random.choices(population=list(kill_messages.keys()), weights=kill_messages.values(), k=1)[0]
+            player_a = random.choice(players)
+            players.remove(player_a)
+            event = event.replace("<A>", player_a)
+            await interaction.channel.send(event)
+#             case "Special":
 #                 pass
-        await asyncio.sleep(4)
-    await interaction.channel.send(players[0] + "wins!")
+        await asyncio.sleep(5)
+    await interaction.channel.send(players[0] + " wins!")
+    playing = False
     players.clear()
+    bots.clear()
 
+@tree.command()
+async def get_money(interaction: discord.Interaction):
+    await interaction.channel.send(add_player_coin(0))
 
 @tree.command(guild=discord.Object(id=962142361935314996))
 async def sync_commands(interaction: discord.Interaction):
